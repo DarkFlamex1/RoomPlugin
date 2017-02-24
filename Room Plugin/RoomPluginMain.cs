@@ -12,19 +12,9 @@ namespace Room_Plugin
     {
         public const byte ROOM_CREATE = 0;
         public const byte ROOM_JOIN = 1;
-        //public const byte SYNC_TAG = 2;
-        public ArrayList Room1 = new ArrayList();
-        public ArrayList Room2 = new ArrayList();
-        public ArrayList Room3 = new ArrayList();
-        public ArrayList Room4 = new ArrayList();
-        public ArrayList Room5 = new ArrayList();
-        public ArrayList Room6 = new ArrayList();
-        public ArrayList Room7 = new ArrayList();
-        public ArrayList Room8 = new ArrayList();
-        public ArrayList Room9 = new ArrayList();
-        public ArrayList Room10 = new ArrayList();
+        public const byte ROOM_LEAVE = 2;
 
-
+        public List<Room> RoomList  = new List<Room>();
 
 
         public override string author
@@ -70,8 +60,8 @@ namespace Room_Plugin
         public RoomPluginMain()
         {
             Interface.Log("Instilizing");
-            ConnectionService.onPlayerDisconnect += OnPlayerDisconnect;
-            ConnectionService.onData += OnData;
+            //ConnectionService.onPlayerDisconnect += OnPlayerDisconnect;
+            ConnectionService.onData += OnData; //Pass on to the OnData function
         }
 
         /// <summary>
@@ -82,7 +72,25 @@ namespace Room_Plugin
         { 
             if(data.tag == ROOM_CREATE)
             {
+                Room temp = new Room(); //The room object 
+                String name;
+                int MaxPlayers;
 
+                data.DecodeData(); //Decode the Data
+                using (DarkRiftReader reader = data.data as DarkRiftReader)
+                {
+                    name = reader.ReadString(); //Name of Room is always first
+                    MaxPlayers = reader.ReadUInt16(); //MaxPlayers read after
+
+                }
+
+                temp.SetName(name);
+                temp.SetMaxPlayers(MaxPlayers);
+                lock (RoomList)
+                {
+                    RoomList.Add(temp);
+                }
+                
             }
             if(data.tag == ROOM_JOIN)
             {
@@ -90,43 +98,18 @@ namespace Room_Plugin
                 using (DarkRiftReader reader = data.data as DarkRiftReader)
                 {
                     ushort senderID = data.senderID;
-                    ushort room = reader.ReadUInt16();
+                    String name = reader.ReadString();
 
-                    switch (room)
+                    lock (RoomList)
                     {
-                        case 1:
-                            Room1.Add(senderID);
-                            break;
-                        case 2:
-                            Room2.Add(senderID);
-                            break;
-                        case 3:
-                            Room3.Add(senderID);
-                            break;
-                        case 4:
-                            Room4.Add(senderID);
-                            break;
-                        case 5:
-                            Room5.Add(senderID);
-                            break;
-                        case 6:
-                            Room6.Add(senderID);
-                            break;
-                        case 7:
-                            Room7.Add(senderID);
-                            break;
-                        case 8:
-                            Room8.Add(senderID);
-                            break;
-                        case 9:
-                            Room9.Add(senderID);
-                            break;
-                        case 10:
-                            Room10.Add(senderID);
-                            break;
-                        default:
-                            Interface.Log("Dude Send Room info!");
-                            break;
+                        foreach (Room room in RoomList)
+                        {
+                            if (room.GetName().Equals(name))
+                            {
+                                room.AddPlayer(senderID);
+                                break;
+                            }
+                        }
                     }
                 }
             }
