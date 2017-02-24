@@ -36,5 +36,10 @@ namespace Room_Plugin
         {
             Players.Add(senderID);
         }
+
+        public void RemovePlayer(ushort senderID)
+        {
+            Players.Add(senderID);
+        }
     }
 }

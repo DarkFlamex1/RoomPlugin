@@ -86,9 +86,25 @@ namespace Room_Plugin
 
                 temp.SetName(name);
                 temp.SetMaxPlayers(MaxPlayers);
+
+                bool exists = false;
+
                 lock (RoomList)
                 {
-                    RoomList.Add(temp);
+                    foreach (Room room in RoomList) //Check if room already exists
+                    {
+                        if (room.GetName().Equals(name))
+                        {
+                            Interface.Log("Cannot create room with same name!");
+                            exists = true;
+                            break;
+                        }
+                    }
+                    if (exists == false)
+                    {
+                        RoomList.Add(temp); //Add if it doesnt exist
+                    }
+                    
                 }
                 
             }
@@ -113,6 +129,19 @@ namespace Room_Plugin
                     }
                 }
             }
+            if(data.tag == ROOM_LEAVE)
+            {
+                data.DecodeData();
+                using (DarkRiftReader reader = data.data as DarkRiftReader)
+                {
+                    ushort senderId = data.senderID;
+                    foreach(Room room in RoomList)
+                    {
+                       //Implement Find in Room for ids
+                    }
+                }
+            }
+
             
         }
 
