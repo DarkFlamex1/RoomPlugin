@@ -14,7 +14,8 @@ namespace Room_Plugin
         public const byte ROOM_JOIN = 1;
         public const byte ROOM_LEAVE = 2;
 
-        public List<Room> RoomList  = new List<Room>();
+        public List<Room> RoomList  = new List<Room>(); 
+
 
 
         public override string author
@@ -45,7 +46,7 @@ namespace Room_Plugin
         {
             get
             {
-                return "vikram.peddinti@gmail.com";
+                return "Unity@unity.com";
             }
         }
 
@@ -62,6 +63,7 @@ namespace Room_Plugin
             Interface.Log("Instilizing");
             //ConnectionService.onPlayerDisconnect += OnPlayerDisconnect;
             ConnectionService.onData += OnData; //Pass on to the OnData function
+           
         }
 
         /// <summary>
@@ -135,17 +137,42 @@ namespace Room_Plugin
                 using (DarkRiftReader reader = data.data as DarkRiftReader)
                 {
                     ushort senderId = data.senderID;
-                    foreach(Room room in RoomList)
+                    lock (RoomList)
                     {
-                       //Implement Find in Room for ids
+                        foreach (Room room in RoomList)
+                        {
+                            if (room.PlayerExists(senderId))
+                            {
+                                room.RemovePlayer(senderId);
+                                Interface.Log(senderId + " Left Room");
+                            }
+                        }
                     }
                 }
             }
-
-            
+            else
+            {
+                data.DecodeData();
+                ushort senderId = data.senderID;
+                
+                foreach(Room room in RoomList)
+                {
+                    if (room.PlayerExists(senderId))
+                    {
+                        foreach(ushort id in room.Players)
+                        {
+                            if (id != senderId) //Make sure message is not sent to the original sender
+                            {
+                                ConnectionService tempCon = DarkRiftServer.GetConnectionServiceByID(id); //Gets the connection service between service and id
+                                tempCon.SendNetworkMessage(data);
+                            }
+                        }
+                    }
+                }
+            }       
         }
 
-
+        
 
 
 

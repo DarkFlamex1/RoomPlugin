@@ -31,7 +31,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="DarkRift">
-      <HintPath>..\..\..\..\Github\DarkRift\Lib\DarkRift.dll</HintPath>
+      <HintPath>..\..\DarkRiftServer\Lib\DarkRift.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -42,11 +42,12 @@
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Xml" />
     <Reference Include="Transmission">
-      <HintPath>..\..\..\..\Github\DarkRift\Lib\Transmission.dll</HintPath>
+      <HintPath>..\..\DarkRiftServer\Lib\Transmission.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Room.cs" />
     <Compile Include="RoomPluginMain.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

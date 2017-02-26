@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using DarkRift;
 
 namespace Room_Plugin
 {
@@ -34,12 +35,31 @@ namespace Room_Plugin
 
         public void AddPlayer(ushort senderID)
         {
-            Players.Add(senderID);
+            if(Players.Count() >= MaxPlayers)
+            {
+                Interface.Log("Too many Players");
+            }
+            else
+            {
+                Players.Add(senderID);
+            }
         }
 
         public void RemovePlayer(ushort senderID)
         {
-            Players.Add(senderID);
+            Players.Remove(senderID);
+        }
+
+        public bool PlayerExists(ushort senderID)
+        {
+            if(Players.IndexOf(senderID) == -1) //Checks if the specific id exists within room
+            {
+                return false;
+            }
+            else
+            {
+                return true;
+            }
         }
     }
 }
