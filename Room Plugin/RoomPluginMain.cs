@@ -172,6 +172,15 @@ namespace Room_Plugin
                                 tempCon.SendNetworkMessage(data);
                                 Interface.Log("Sending Msg");
                             }
+                            if (data.distributionType.Equals(7)) //To avoid duplicates use type 7 as others
+                            {
+                                if (id != senderId) //Make sure message is not sent to the original sender
+                                {
+                                    ConnectionService tempCon = DarkRiftServer.GetConnectionServiceByID(id); //Gets the connection service between service and id
+                                    tempCon.SendNetworkMessage(data);
+                                    Interface.Log("Sending Msg others");
+                                }
+                            }
                             else
                             {
                                 if (id != senderId) //Make sure message is not sent to the original sender
