@@ -90,6 +90,7 @@ namespace Room_Plugin
 
                 temp.SetName(name);
                 temp.SetMaxPlayers(MaxPlayers);
+                
 
                 bool exists = false;
 
@@ -107,6 +108,7 @@ namespace Room_Plugin
                     if (exists == false)
                     {
                         RoomList.Add(temp); //Add if it doesnt exist
+                        Interface.Log("Created room with name " + name + "max players" + MaxPlayers);
                     }
                     
                 }
@@ -127,6 +129,7 @@ namespace Room_Plugin
                             if (room.GetName().Equals(name))
                             {
                                 room.AddPlayer(senderID);
+                                Interface.Log("Joined room");
                                 break;
                             }
                         }
@@ -146,7 +149,7 @@ namespace Room_Plugin
                             if (room.PlayerExists(senderId))
                             {
                                 room.RemovePlayer(senderId);
-                                Interface.Log(senderId + " Left Room");
+                                Interface.Log(senderId + " Left the Room");
                             }
                         }
                     }
@@ -163,10 +166,28 @@ namespace Room_Plugin
                     {
                         foreach(ushort id in room.Players)
                         {
-                            if (id != senderId) //Make sure message is not sent to the original sender
+                            if(data.distributionType == DistributionType.Custom) //To avoid duplicates use type 5 as all
                             {
                                 ConnectionService tempCon = DarkRiftServer.GetConnectionServiceByID(id); //Gets the connection service between service and id
                                 tempCon.SendNetworkMessage(data);
+                                Interface.Log("Sending Msg");
+                            }
+                            if (data.distributionType.Equals(7)) //To avoid duplicates use type 7 as others
+                            {
+                                if (id != senderId) //Make sure message is not sent to the original sender
+                                {
+                                    ConnectionService tempCon = DarkRiftServer.GetConnectionServiceByID(id); //Gets the connection service between service and id
+                                    tempCon.SendNetworkMessage(data);
+                                    Interface.Log("Sending Msg others");
+                                }
+                            }
+                            else
+                            {
+                                if (id != senderId) //Make sure message is not sent to the original sender
+                                {
+                                    ConnectionService tempCon = DarkRiftServer.GetConnectionServiceByID(id); //Gets the connection service between service and id
+                                    tempCon.SendNetworkMessage(data);
+                                }
                             }
                         }
                     }
