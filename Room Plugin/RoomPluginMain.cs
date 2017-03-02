@@ -72,35 +72,44 @@ namespace Room_Plugin
                 int MaxPlayers;
 
                 data.DecodeData(); //Decode the Data
+
                 using (DarkRiftReader reader = data.data as DarkRiftReader)
                 {
                     name = reader.ReadString(); //Name of Room is always first
                     MaxPlayers = reader.ReadUInt16(); //MaxPlayers read after
                 }
 
-                temp.SetName(name);
-                temp.SetMaxPlayers(MaxPlayers);
-
-                bool exists = false;
-
                 lock (RoomList)
                 {
-                    foreach (Room room in RoomList) //Check if room already exists
+                    // If the name is blank, generate a unique room name by creating a UUID and then
+                    // seeing if it exists in the list of current rooms.
+                    if (name == "")
                     {
-                        if (room.GetName().Equals(name))
+                        while (true)
                         {
-                            Interface.Log("Cannot create room with same name!");
-                            exists = true;
-                            break;
+                            string uniqueName = Guid.NewGuid().ToString();
+                            if (!IsRoomNameInUse(uniqueName))
+                            {
+                                name = uniqueName;
+                                break;
+                            }
                         }
                     }
-                    if (exists == false)
-                    {
-                        RoomList.Add(temp); //Add if it doesnt exist
-                        Interface.Log("Created room with name " + name + "max players" + MaxPlayers);
+                    // Otherwise, we check if the supplied name is in use.
+                    else {
+                        if (IsRoomNameInUse(name))
+                        {
+                            Interface.Log("That room name is already in use!");
+                            return;
+                        }
                     }
                 }
-                
+
+                temp.SetMaxPlayers(MaxPlayers);
+                temp.SetName(name);
+
+                RoomList.Add(temp); //Add if it doesnt exist
+                Interface.Log("Created room with name " + name + "max players" + MaxPlayers);
             }
             else if(data.tag == ROOM_JOIN)
             {
@@ -181,6 +190,20 @@ namespace Room_Plugin
                     }
                 }
             }       
+        }
+
+        private bool IsRoomNameInUse (string name) {
+
+            bool nameIsInUse = false;
+
+            foreach (Room room in RoomList) {
+                if (room.GetName() == name) {
+                    nameIsInUse = true;
+                    break;
+                }
+            }
+
+            return nameIsInUse;
         }
     }
 }
