@@ -13,26 +13,46 @@ namespace Room_Plugin
         public String Name;
         public List<ushort> Players = new List<ushort>();
 
+        /// <summary>
+        ///     Sets the max number of players.
+        /// </summary>
+        /// <param name="max"></param>
         public void SetMaxPlayers(int max)
         {
             MaxPlayers = max;
         }
 
+        /// <summary>
+        ///     Gets the max number of players.
+        /// </summary>
+        /// <returns>The max number of players allowed in the room.</returns>
         public int GetMaxPlayers()
         {
             return MaxPlayers;
         }
 
-        public void SetName(String max)
+        /// <summary>
+        ///     Sets the room name.
+        /// </summary>
+        /// <param name="name"></param>
+        public void SetName(String name)
         {
-            Name = max;
+            Name = name;
         }
 
+        /// <summary>
+        ///     Gets the room name.
+        /// </summary>
+        /// <returns>The name of the room.</returns>
         public String GetName()
         {
             return Name;
         }
 
+        /// <summary>
+        ///     Adds a player to the room if the number of players will not exceed the max player count.
+        /// </summary>
+        /// <param name="senderID"></param>
         public void AddPlayer(ushort senderID)
         {
             if(Players.Count() >= MaxPlayers)
@@ -45,21 +65,26 @@ namespace Room_Plugin
             }
         }
 
+        /// <summary>
+        ///     Removes a player from the room.
+        /// </summary>
+        /// <param name="senderID"></param>
         public void RemovePlayer(ushort senderID)
         {
             Players.Remove(senderID);
         }
 
+        /// <summary>
+        ///   Determines if a player exists in the room.
+        /// </summary>
+        /// <param name="senderID"></param>
+        /// <returns>
+        ///     True if player exists in the room, false otherwise.
+        /// </returns>
         public bool PlayerExists(ushort senderID)
         {
-            if(Players.IndexOf(senderID) == -1) //Checks if the specific id exists within room
-            {
-                return false;
-            }
-            else
-            {
-                return true;
-            }
+            return Players.IndexOf(senderID) != -1;
         }
+
     }
 }

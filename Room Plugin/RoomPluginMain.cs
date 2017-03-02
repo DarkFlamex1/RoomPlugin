@@ -1,10 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using DarkRift;
-using System.Collections;
 
 namespace Room_Plugin
 {
@@ -15,8 +11,6 @@ namespace Room_Plugin
         public const byte ROOM_LEAVE = 2;
 
         public List<Room> RoomList  = new List<Room>(); 
-
-
 
         public override string author
         {
@@ -46,9 +40,7 @@ namespace Room_Plugin
         {
             get
             {
-
                 return "hax@gmail.com";
-
             }
         }
 
@@ -56,7 +48,7 @@ namespace Room_Plugin
         {
             get
             {
-                return "0.01a";
+                return "0.02a";
             }
         }
 
@@ -65,7 +57,6 @@ namespace Room_Plugin
             Interface.Log("Instilizing");
             //ConnectionService.onPlayerDisconnect += OnPlayerDisconnect;
             ConnectionService.onData += OnData; //Pass on to the OnData function
-           
         }
 
         /// <summary>
@@ -85,12 +76,10 @@ namespace Room_Plugin
                 {
                     name = reader.ReadString(); //Name of Room is always first
                     MaxPlayers = reader.ReadUInt16(); //MaxPlayers read after
-
                 }
 
                 temp.SetName(name);
                 temp.SetMaxPlayers(MaxPlayers);
-                
 
                 bool exists = false;
 
@@ -110,11 +99,10 @@ namespace Room_Plugin
                         RoomList.Add(temp); //Add if it doesnt exist
                         Interface.Log("Created room with name " + name + "max players" + MaxPlayers);
                     }
-                    
                 }
                 
             }
-            if(data.tag == ROOM_JOIN)
+            else if(data.tag == ROOM_JOIN)
             {
                 data.DecodeData();
                 using (DarkRiftReader reader = data.data as DarkRiftReader)
@@ -136,7 +124,7 @@ namespace Room_Plugin
                     }
                 }
             }
-            if(data.tag == ROOM_LEAVE)
+            else if(data.tag == ROOM_LEAVE)
             {
                 data.DecodeData();
                 using (DarkRiftReader reader = data.data as DarkRiftReader)
@@ -172,7 +160,7 @@ namespace Room_Plugin
                                 tempCon.SendNetworkMessage(data);
                                 Interface.Log("Sending Msg");
                             }
-                            if (data.distributionType.Equals(7)) //To avoid duplicates use type 7 as others
+                            else if (data.distributionType.Equals(7)) //To avoid duplicates use type 7 as others
                             {
                                 if (id != senderId) //Make sure message is not sent to the original sender
                                 {
@@ -194,10 +182,5 @@ namespace Room_Plugin
                 }
             }       
         }
-
-        
-
-
-
-        }
+    }
 }
