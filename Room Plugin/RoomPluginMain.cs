@@ -4,8 +4,10 @@ using DarkRift;
 
 namespace Room_Plugin
 {
-    class RoomPluginMain : Plugin
-    {
+    class RoomPluginMain : Plugin {
+
+        public const byte RoomTag = 147;
+
         public const byte ROOM_CREATE = 0;
         public const byte ROOM_JOIN = 1;
         public const byte ROOM_LEAVE = 2;
@@ -66,11 +68,22 @@ namespace Room_Plugin
         ///     Called when the player has connected and has been added to the list of players.
         /// </summary>
         /// <param name="con">The connection to the player.</param>
-        void OnData(ConnectionService con, ref NetworkMessage data)
-        { 
-            if(data.tag == ROOM_CREATE)
+        void OnData(ConnectionService con, ref NetworkMessage data) {
+
+            int subject = data.subject;
+
+            // We only care about our "Room" tag
+            if (data.tag != RoomTag)
             {
-                Room temp = new Room(); //The room object 
+                return;
+            }
+
+            // Keep the original encoded data stored to pass on later
+            object originalData = data.data;
+
+            if (subject == ROOM_CREATE)
+            {
+                Room roomToCreate = new Room(); //The room object 
                 String name;
                 int MaxPlayers;
 
@@ -103,18 +116,18 @@ namespace Room_Plugin
                         if (IsRoomNameInUse(name))
                         {
                             Interface.Log("That room name is already in use!");
+                            ResetData(ref data, originalData);
                             return;
                         }
                     }
+
+                    roomToCreate.SetMaxPlayers(MaxPlayers);
+                    roomToCreate.SetName(name);
+                    RoomList.Add(roomToCreate);
+                    Interface.Log("Created room with name " + name + "max players" + MaxPlayers);
                 }
-
-                temp.SetMaxPlayers(MaxPlayers);
-                temp.SetName(name);
-
-                RoomList.Add(temp); //Add if it doesnt exist
-                Interface.Log("Created room with name " + name + "max players" + MaxPlayers);
             }
-            else if(data.tag == ROOM_JOIN)
+            else if(subject == ROOM_JOIN)
             {
                 data.DecodeData();
                 using (DarkRiftReader reader = data.data as DarkRiftReader)
@@ -136,7 +149,7 @@ namespace Room_Plugin
                     }
                 }
             }
-            else if(data.tag == ROOM_LEAVE)
+            else if(subject == ROOM_LEAVE)
             {
                 data.DecodeData();
                 using (DarkRiftReader reader = data.data as DarkRiftReader)
@@ -157,7 +170,6 @@ namespace Room_Plugin
             }
             else
             {
-                
                 data.DecodeData();
                 ushort senderId = data.senderID;
                 
@@ -193,11 +205,18 @@ namespace Room_Plugin
                         }
                     }
                 }
-            }       
+            }
+
+            // Re-encode the data by setting the data property to its original value
+            data.data = originalData;
+        }
+
+        private void ResetData (ref NetworkMessage data, object originalData) {
+            data.data = originalData;
         }
 
         /// <summary>
-        /// Returns true if Room name is in use
+        ///     Returns true if Room name is in use
         /// </summary>
         /// <param name="name"></param>
         /// <returns></returns>
@@ -215,7 +234,7 @@ namespace Room_Plugin
             return nameIsInUse;
         }
         /// <summary>
-        /// Searches for the room and returns the index
+        ///     Searches for the room and returns the index
         /// </summary>
         /// <param name="name"></param>
         /// <returns></returns>
