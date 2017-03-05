@@ -24,9 +24,10 @@ namespace Room_Plugin
         {
             get
             {
-                return new Command[0];
+                return new Command[]{
+                         new Command("List Rooms","List all the rooms at the moment", ListRooms_Command)
+                };
             }
-        }
 
         public override string name
         {
@@ -154,6 +155,7 @@ namespace Room_Plugin
             }
             else
             {
+                
                 data.DecodeData();
                 ushort senderId = data.senderID;
                 
@@ -192,6 +194,11 @@ namespace Room_Plugin
             }       
         }
 
+        /// <summary>
+        /// Returns true if Room name is in use
+        /// </summary>
+        /// <param name="name"></param>
+        /// <returns></returns>
         private bool IsRoomNameInUse (string name) {
 
             bool nameIsInUse = false;
@@ -204,6 +211,17 @@ namespace Room_Plugin
             }
 
             return nameIsInUse;
+        }
+
+        /// <summary>
+        /// Command to List Rooms right now
+        /// </summary>
+        public void ListRooms_Command()
+        {
+            foreach(Room room in RoomList)
+            {
+                Interface.Log(room.ToString());
+            }
         }
     }
 }
