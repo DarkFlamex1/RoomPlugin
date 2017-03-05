@@ -86,7 +86,7 @@ namespace Room_Plugin
             return Players.IndexOf(senderID) != -1;
         }
         
-        public String toString()
+        public override String ToString()
         {
             return ("Name of room: " + Name + " and max players of : " + MaxPlayers);
         }

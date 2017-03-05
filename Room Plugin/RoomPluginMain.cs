@@ -9,6 +9,7 @@ namespace Room_Plugin
         public const byte ROOM_CREATE = 0;
         public const byte ROOM_JOIN = 1;
         public const byte ROOM_LEAVE = 2;
+        public const byte ROOM_DELETE = 3;
 
         public List<Room> RoomList  = new List<Room>(); 
 
@@ -25,9 +26,10 @@ namespace Room_Plugin
             get
             {
                 return new Command[]{
-                         new Command("List Rooms","List all the rooms at the moment", ListRooms_Command)
+                         new Command("ListRooms","List all the rooms at the moment", ListRooms_Command)
                 };
             }
+        }
 
         public override string name
         {
@@ -212,11 +214,16 @@ namespace Room_Plugin
 
             return nameIsInUse;
         }
+        /// <summary>
+        /// Searches for the room and returns the index
+        /// </summary>
+        /// <param name="name"></param>
+        /// <returns></returns>
 
         /// <summary>
         /// Command to List Rooms right now
         /// </summary>
-        public void ListRooms_Command()
+        public void ListRooms_Command(String[] abc)
         {
             foreach(Room room in RoomList)
             {
