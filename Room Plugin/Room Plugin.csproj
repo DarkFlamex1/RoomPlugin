@@ -31,7 +31,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="DarkRift">
-      <HintPath>..\..\DarkRiftServer\Lib\DarkRift.dll</HintPath>
+      <HintPath>..\..\..\..\tools\DarkRift Server - Free\Lib\DarkRift.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -42,7 +42,7 @@
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Xml" />
     <Reference Include="Transmission">
-      <HintPath>..\..\DarkRiftServer\Lib\Transmission.dll</HintPath>
+      <HintPath>..\..\..\..\tools\DarkRift Server - Free\Lib\Transmission.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
