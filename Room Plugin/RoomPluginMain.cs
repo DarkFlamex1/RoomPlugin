@@ -12,6 +12,7 @@ namespace Room_Plugin
         public const byte ROOM_JOIN = 1;
         public const byte ROOM_LEAVE = 2;
         public const byte ROOM_DELETE = 3;
+        public const byte ROOM_LIST = 4;
 
         public List<Room> RoomList  = new List<Room>(); 
 
@@ -112,7 +113,8 @@ namespace Room_Plugin
                         }
                     }
                     // Otherwise, we check if the supplied name is in use.
-                    else {
+                    else
+                    {
                         if (IsRoomNameInUse(name))
                         {
                             Interface.Log("That room name is already in use!");
@@ -127,7 +129,7 @@ namespace Room_Plugin
                     Interface.Log("Created room with name " + name + "max players" + MaxPlayers);
                 }
             }
-            else if(subject == ROOM_JOIN)
+            else if (subject == ROOM_JOIN)
             {
                 data.DecodeData();
                 using (DarkRiftReader reader = data.data as DarkRiftReader)
@@ -149,7 +151,7 @@ namespace Room_Plugin
                     }
                 }
             }
-            else if(subject == ROOM_LEAVE)
+            else if (subject == ROOM_LEAVE)
             {
                 data.DecodeData();
                 using (DarkRiftReader reader = data.data as DarkRiftReader)
@@ -170,18 +172,30 @@ namespace Room_Plugin
                     }
                 }
             }
+            else if (subject == ROOM_LIST)
+            {
+                using (DarkRiftWriter writer = new DarkRiftWriter())
+                {
+                    foreach (Room room in RoomList)
+                    {
+                        writer.Write(room.GetName()); //Write name and max players of each room and send it to the senderID
+                        writer.Write(room.GetMaxPlayers());
+                    }
+                    con.SendReply(RoomTag, ROOM_LIST, writer);
+                }
+            }
             else
             {
                 data.DecodeData();
                 ushort senderId = data.senderID;
-                
-                foreach(Room room in RoomList)
+
+                foreach (Room room in RoomList)
                 {
                     if (room.PlayerExists(senderId))
                     {
-                        foreach(ushort id in room.Players)
+                        foreach (ushort id in room.Players)
                         {
-                            if(data.distributionType == DistributionType.Custom) //To avoid duplicates use type 5 as all
+                            if (data.distributionType == DistributionType.Custom) //To avoid duplicates use type 5 as all
                             {
                                 ConnectionService tempCon = DarkRiftServer.GetConnectionServiceByID(id); //Gets the connection service between service and id
                                 tempCon.SendNetworkMessage(data);
