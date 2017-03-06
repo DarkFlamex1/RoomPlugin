@@ -132,16 +132,16 @@ namespace Room_Plugin
                 data.DecodeData();
                 using (DarkRiftReader reader = data.data as DarkRiftReader)
                 {
-                    ushort senderID = data.senderID;
-                    String name = reader.ReadString();
+                    ushort senderId = data.senderID;
+                    String roomName = reader.ReadString();
 
                     lock (RoomList)
                     {
                         foreach (Room room in RoomList)
                         {
-                            if (room.GetName().Equals(name))
+                            if (room.GetName().Equals(roomName) && !room.PlayerExists(senderId))
                             {
-                                room.AddPlayer(senderID);
+                                room.AddPlayer(senderId);
                                 Interface.Log("Joined room");
                                 break;
                             }
@@ -155,11 +155,13 @@ namespace Room_Plugin
                 using (DarkRiftReader reader = data.data as DarkRiftReader)
                 {
                     ushort senderId = data.senderID;
+                    String roomName = reader.ReadString();
+
                     lock (RoomList)
                     {
                         foreach (Room room in RoomList)
                         {
-                            if (room.PlayerExists(senderId))
+                            if (room.GetName().Equals(roomName) && room.PlayerExists(senderId))
                             {
                                 room.RemovePlayer(senderId);
                                 Interface.Log(senderId + " Left the Room");
