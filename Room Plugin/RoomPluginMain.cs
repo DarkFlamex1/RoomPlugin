@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using DarkRift;
 
 namespace Room_Plugin
@@ -13,6 +14,16 @@ namespace Room_Plugin
         public const byte ROOM_LEAVE = 2;
         public const byte ROOM_DELETE = 3;
         public const byte ROOM_LIST = 4;
+
+        // Event subjects
+        public const byte CREATED_ROOM_EVENT = 5;
+        public const byte CREATED_ROOM_FAILED_EVENT = 6;
+        public const byte JOINED_ROOM_EVENT = 7;
+        public const byte JOINED_ROOM_FAILED_EVENT = 8;
+        public const byte LEFT_ROOM_EVENT = 9;
+        public const byte LEFT_ROOM_FAILED_EVENT = 10;
+        public const byte PLAYER_JOINED_ROOM_EVENT = 11;
+        public const byte PLAYER_LEFT_ROOM_EVENT = 12;
 
         // Note that we have to keep these two dicts in sync.
         public Dictionary<string, Room> roomsByName = new Dictionary<string, Room>();
@@ -63,13 +74,15 @@ namespace Room_Plugin
         public RoomPluginMain()
         {
             Interface.Log("Instilizing");
-            //ConnectionService.onPlayerDisconnect += OnPlayerDisconnect;
-            ConnectionService.onData += OnData; //Pass on to the OnData function
+            ConnectionService.onData += OnData;
+            ConnectionService.onPlayerDisconnect += OnPlayerDisconnect;
         }
 
         #region Subject handlers
 
         private void CreateRoomHandler (ConnectionService con, ref NetworkMessage data) {
+
+            ushort senderId = con.id;
 
             Room roomToCreate = new Room();
             String roomName;
@@ -94,24 +107,31 @@ namespace Room_Plugin
                         }
                     }
                 }
-                // Otherwise, we check if the supplied name is in use.
+                // Otherwise, we check if the supplied name is in use, and respond with an error
+                // if it is.
                 else {
                     if (DoesRoomExist(roomName)) {
-                        // TODO -- reply to user with subject CreateRoomFailed 
                         Interface.Log("That room name is already in use!");
+                        using (DarkRiftWriter writer = new DarkRiftWriter()) {
+                            writer.Write("Room name is in use");
+                            con.SendReply(RoomTag, CREATED_ROOM_FAILED_EVENT, writer);
+                        }
                         return;
                     }
                 }
 
-                ushort senderId = con.id;
-
                 roomToCreate.SetMaxPlayers(maxPlayers);
                 roomToCreate.SetName(roomName);
-                roomsByName.Add(roomName, roomToCreate);
-                senderIdToRoomName.Add(senderId, roomName);
-
-                // TODO -- reply to user with 2 messages, subjects: CreateRoom, JoinRoom
                 roomToCreate.AddPlayer(senderId);
+                roomsByName.Add(roomName, roomToCreate);
+            }
+
+            senderIdToRoomName.Add(senderId, roomName);
+
+            using (DarkRiftWriter writer = new DarkRiftWriter()) {
+                writer.Write(roomName);
+                con.SendReply(RoomTag, CREATED_ROOM_EVENT, writer);
+                Interface.Log("replying to: " + senderId);
             }
 
             Interface.Log("Created room with name: " + roomName + ", max players: " + maxPlayers);
@@ -125,15 +145,20 @@ namespace Room_Plugin
 
             using (DarkRiftReader reader = data.data as DarkRiftReader) {
                 String roomName = reader.ReadString();
+                Room roomToJoin;
 
                 lock (roomsByName) {
+                    // If room doesn't exist, reply with an error
                     if (!DoesRoomExist(roomName)) {
-                        // TODO -- reply to user swith subject JoinRoomFailed
                         Interface.Log("Can't join - room does not exist!");
+                        using (DarkRiftWriter writer = new DarkRiftWriter()) {
+                            writer.Write("Room does not exist");
+                            con.SendReply(RoomTag, JOINED_ROOM_FAILED_EVENT, writer);
+                        }
                         return;
                     }
 
-                    Room roomToJoin = roomsByName[roomName];
+                    roomToJoin = roomsByName[roomName];
 
                     // If player is already in room, do nothing
                     if (roomToJoin.PlayerExists(senderId)) {
@@ -144,8 +169,22 @@ namespace Room_Plugin
                     roomToJoin.AddPlayer(senderId);
                     senderIdToRoomName[senderId] = roomToJoin.GetName();
 
-                    // TODO -- reply to user with subject JoinRoom
                     Interface.Log("Player has joined room.");
+                }
+
+                using (DarkRiftWriter writer = new DarkRiftWriter()) {
+                    writer.Write(roomName);
+                    con.SendReply(RoomTag, JOINED_ROOM_EVENT, writer);
+                    Interface.Log("replying to: " + senderId);
+                }
+
+                // Tell each player in the room that someone has joined, except for the person that
+                // just joined.
+                foreach (ushort id in roomToJoin.Players) {
+                    if (id == senderId) {
+                        continue;
+                    }
+                    DarkRiftServer.GetConnectionServiceByID(id).SendReply(RoomTag, PLAYER_JOINED_ROOM_EVENT, senderId);
                 }
             }
         }
@@ -163,8 +202,11 @@ namespace Room_Plugin
 
                     // If the room doesn't exist, reply with error
                     if (!DoesRoomExist(roomName)) {
-                        // TODO -- reply to user with subject LeaveRoomFailed
                         Interface.Log("Can't leave - room does not exist!");
+                        using (DarkRiftWriter writer = new DarkRiftWriter()) {
+                            writer.Write("Room does not exist");
+                            con.SendReply(RoomTag, LEFT_ROOM_FAILED_EVENT, writer);
+                        }
                         return;
                     }
 
@@ -172,16 +214,22 @@ namespace Room_Plugin
 
                     // Also reply with error if room exists but player is not in it
                     if (!roomToLeave.PlayerExists(senderId)) {
-                        // TODO -- reply to user with subject LeaveRoomFailed
                         Interface.Log("Can't leave - player is not in room!");
+                        using (DarkRiftWriter writer = new DarkRiftWriter()) {
+                            writer.Write("Player is not in room");
+                            con.SendReply(RoomTag, LEFT_ROOM_FAILED_EVENT, writer);
+                        }
                         return;
                     }
 
-                    roomToLeave.RemovePlayer(senderId);
-                    senderIdToRoomName.Remove(senderId);
+                    RemovePlayerFromRoom(roomToLeave, senderId);
+                }
 
-                    // TODO -- reply to user with subject LeaveRoom
-                    Interface.Log("Left room.");
+                senderIdToRoomName.Remove(senderId);
+                Interface.Log("Left room.");
+
+                using (DarkRiftWriter writer = new DarkRiftWriter()) {
+                    con.SendReply(RoomTag, LEFT_ROOM_EVENT, writer);
                 }
             }
         }
@@ -202,7 +250,6 @@ namespace Room_Plugin
 
         private void DefaultSubjectHandler (ref NetworkMessage data) {
 
-            data.DecodeData();
             ushort senderId = data.senderID;
 
             // If the player is not a room, do nothing
@@ -243,11 +290,14 @@ namespace Room_Plugin
 
         #endregion
 
+        #region ConnectionService delegates
+
         /// <summary>
-        ///     Called when the player has connected and has been added to the list of players.
+        ///     Called when data is received over the network from a player.
         /// </summary>
         /// <param name="con">The connection to the player.</param>
-        void OnData(ConnectionService con, ref NetworkMessage data) {
+        /// <param name="data">Data received.</param>
+        private void OnData (ConnectionService con, ref NetworkMessage data) {
 
             // We only care about our "Room" tag
             if (data.tag != RoomTag) {
@@ -284,6 +334,54 @@ namespace Room_Plugin
         }
 
         /// <summary>
+        ///     Called when a player disconnects from the server. Removes them from the room they
+        ///     are in (if they are in one), and, if the room is now empty, removes the room.
+        /// </summary>
+        /// <param name="con">The connection to the player.</param>
+        private void OnPlayerDisconnect (ConnectionService con) {
+
+            ushort senderId = con.id;
+
+            if (!senderIdToRoomName.ContainsKey(senderId)) {
+                return;
+            }
+
+            // Player is in a room; find the room and, if it exists, remove them from it.
+            string roomNameWithSender = senderIdToRoomName[senderId];
+
+            lock (roomsByName) {
+                if (roomsByName.ContainsKey(roomNameWithSender)) {
+                    RemovePlayerFromRoom(roomsByName[roomNameWithSender], senderId);
+                }
+            }
+
+            senderIdToRoomName.Remove(senderId);
+        }
+
+        #endregion
+
+        #region Message helpers
+
+        private void RemovePlayerFromRoom (Room room, ushort playerToRemoveId) {
+
+            room.RemovePlayer(playerToRemoveId);
+
+            // If the room is now empty, destroy the room. Otherwise, send a message to the
+            // others in the room saying a player has left.
+            if (room.Players.Count == 0) {
+                roomsByName.Remove(room.GetName());
+            } else {
+                foreach (ushort id in room.Players) {
+                    DarkRiftServer.GetConnectionServiceByID(id).SendReply(RoomTag, PLAYER_LEFT_ROOM_EVENT, playerToRemoveId);
+                }
+            }
+        }
+
+        #endregion
+
+        #region Other helpers
+
+        /// <summary>
         ///     Returns true if Room name is in use
         /// </summary>
         /// <param name="roomName"></param>
@@ -314,5 +412,7 @@ namespace Room_Plugin
                 }
             }
         }
+
+        #endregion
     }
 }
