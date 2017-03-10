@@ -14,7 +14,9 @@ namespace Room_Plugin
         public const byte ROOM_DELETE = 3;
         public const byte ROOM_LIST = 4;
 
-        public List<Room> RoomList  = new List<Room>(); 
+        // Note that we have to keep these two dicts in sync.
+        public Dictionary<string, Room> roomsByName = new Dictionary<string, Room>();
+        public Dictionary<ushort, string> senderIdToRoomName = new Dictionary<ushort, string>();
 
         public override string author
         {
@@ -67,94 +69,134 @@ namespace Room_Plugin
 
         #region Subject handlers
 
-        private void CreateRoomHandler (ref NetworkMessage data) {
+        private void CreateRoomHandler (ConnectionService con, ref NetworkMessage data) {
 
             Room roomToCreate = new Room();
-            String name;
-            int MaxPlayers;
+            String roomName;
+            int maxPlayers;
 
             data.DecodeData();
 
             using (DarkRiftReader reader = data.data as DarkRiftReader) {
-                name = reader.ReadString();
-                MaxPlayers = reader.ReadUInt16();
+                roomName = reader.ReadString();
+                maxPlayers = reader.ReadUInt16();
             }
 
-            lock (RoomList) {
+            lock (roomsByName) {
                 // If the name is blank, generate a unique room name by creating a UUID and then
                 // seeing if it exists in the list of current rooms.
-                if (name == "") {
+                if (roomName == "") {
                     while (true) {
                         string uniqueName = Guid.NewGuid().ToString();
-                        if (!IsRoomNameInUse(uniqueName)) {
-                            name = uniqueName;
+                        if (!DoesRoomExist(uniqueName)) {
+                            roomName = uniqueName;
                             break;
                         }
                     }
                 }
                 // Otherwise, we check if the supplied name is in use.
                 else {
-                    if (IsRoomNameInUse(name)) {
+                    if (DoesRoomExist(roomName)) {
+                        // TODO -- reply to user with subject CreateRoomFailed 
                         Interface.Log("That room name is already in use!");
                         return;
                     }
                 }
 
-                roomToCreate.SetMaxPlayers(MaxPlayers);
-                roomToCreate.SetName(name);
-                RoomList.Add(roomToCreate);
+                ushort senderId = con.id;
+
+                roomToCreate.SetMaxPlayers(maxPlayers);
+                roomToCreate.SetName(roomName);
+                roomsByName.Add(roomName, roomToCreate);
+                senderIdToRoomName.Add(senderId, roomName);
+
+                // TODO -- reply to user with 2 messages, subjects: CreateRoom, JoinRoom
+                roomToCreate.AddPlayer(senderId);
             }
-            Interface.Log("Created room with name: " + name + ", max players: " + MaxPlayers);
+
+            Interface.Log("Created room with name: " + roomName + ", max players: " + maxPlayers);
         }
 
-        private void JoinRoomHandler (ref NetworkMessage data) {
+        private void JoinRoomHandler (ConnectionService con, ref NetworkMessage data) {
+
+            ushort senderId = con.id;
 
             data.DecodeData();
 
             using (DarkRiftReader reader = data.data as DarkRiftReader) {
-                ushort senderId = data.senderID;
                 String roomName = reader.ReadString();
 
-                lock (RoomList) {
-                    foreach (Room room in RoomList) {
-                        if (room.GetName().Equals(roomName) && !room.PlayerExists(senderId)) {
-                            room.AddPlayer(senderId);
-                            Interface.Log("Joined room");
-                            break;
-                        }
+                lock (roomsByName) {
+                    if (!DoesRoomExist(roomName)) {
+                        // TODO -- reply to user swith subject JoinRoomFailed
+                        Interface.Log("Can't join - room does not exist!");
+                        return;
                     }
+
+                    Room roomToJoin = roomsByName[roomName];
+
+                    // If player is already in room, do nothing
+                    if (roomToJoin.PlayerExists(senderId)) {
+                        Interface.Log("Player is already in room.");
+                        return;
+                    }
+
+                    roomToJoin.AddPlayer(senderId);
+                    senderIdToRoomName[senderId] = roomToJoin.GetName();
+
+                    // TODO -- reply to user with subject JoinRoom
+                    Interface.Log("Player has joined room.");
                 }
             }
         }
 
-        private void LeaveRoomHandler (ref NetworkMessage data) {
+        private void LeaveRoomHandler (ConnectionService con, ref NetworkMessage data) {
+
+            ushort senderId = con.id;
 
             data.DecodeData();
 
             using (DarkRiftReader reader = data.data as DarkRiftReader) {
-                ushort senderId = data.senderID;
                 String roomName = reader.ReadString();
 
-                lock (RoomList) {
-                    foreach (Room room in RoomList) {
-                        if (room.GetName().Equals(roomName) && room.PlayerExists(senderId)) {
-                            room.RemovePlayer(senderId);
-                            Interface.Log(senderId + " Left the Room");
-                        }
+                lock (roomsByName) {
+
+                    // If the room doesn't exist, reply with error
+                    if (!DoesRoomExist(roomName)) {
+                        // TODO -- reply to user with subject LeaveRoomFailed
+                        Interface.Log("Can't leave - room does not exist!");
+                        return;
                     }
+
+                    Room roomToLeave = roomsByName[roomName];
+
+                    // Also reply with error if room exists but player is not in it
+                    if (!roomToLeave.PlayerExists(senderId)) {
+                        // TODO -- reply to user with subject LeaveRoomFailed
+                        Interface.Log("Can't leave - player is not in room!");
+                        return;
+                    }
+
+                    roomToLeave.RemovePlayer(senderId);
+                    senderIdToRoomName.Remove(senderId);
+
+                    // TODO -- reply to user with subject LeaveRoom
+                    Interface.Log("Left room.");
                 }
             }
         }
 
         private void ListRoomHandler (ConnectionService con, ref NetworkMessage data) {
 
-            using (DarkRiftWriter writer = new DarkRiftWriter()) {
-                foreach (Room room in RoomList) {
-                    writer.Write(room.GetName()); //Write name and max players of each room and send it to the senderID
-                    writer.Write(room.GetMaxPlayers());
-                }
+            lock (roomsByName) {
+                using (DarkRiftWriter writer = new DarkRiftWriter()) {
+                    foreach (var roomNamePair in roomsByName) {
+                        writer.Write(roomNamePair.Key); //Write name and max players of each room and send it to the senderID
+                        writer.Write(roomNamePair.Value.GetMaxPlayers());
+                    }
 
-                con.SendReply(RoomTag, ROOM_LIST, writer);
+                    con.SendReply(RoomTag, ROOM_LIST, writer);
+                }
             }
         }
 
@@ -163,30 +205,38 @@ namespace Room_Plugin
             data.DecodeData();
             ushort senderId = data.senderID;
 
-            foreach (Room room in RoomList) {
-                if (room.PlayerExists(senderId)) {
-                    foreach (ushort id in room.Players) {
-                        if (data.distributionType == DistributionType.Custom) //To avoid duplicates use type 5 as all
-                        {
-                            ConnectionService tempCon = DarkRiftServer.GetConnectionServiceByID(id); //Gets the connection service between service and id
-                            tempCon.SendNetworkMessage(data);
-                            Interface.Log("Sending Msg");
-                        } else if (data.distributionType.Equals(7)) //To avoid duplicates use type 7 as others
-                          {
-                            if (id != senderId) //Make sure message is not sent to the original sender
-                            {
-                                ConnectionService tempCon = DarkRiftServer.GetConnectionServiceByID(id); //Gets the connection service between service and id
-                                tempCon.SendNetworkMessage(data);
-                                Interface.Log("Sending Msg others");
-                            }
-                        } else {
-                            if (id != senderId) //Make sure message is not sent to the original sender
-                            {
-                                ConnectionService tempCon = DarkRiftServer.GetConnectionServiceByID(id); //Gets the connection service between service and id
-                                tempCon.SendNetworkMessage(data);
-                            }
-                        }
+            // If the player is not a room, do nothing
+            if (!IsPlayerInAnyRoom(senderId)) {
+                return;
+            }
+
+            Room roomToMessage;
+
+            lock (roomsByName) {
+                roomToMessage = roomsByName[senderIdToRoomName[senderId]];
+            }
+
+            if (data.distributionType == DistributionType.Custom) {
+                // To avoid duplicates use type 5 as all
+                foreach (ushort id in roomToMessage.Players) {
+                    DarkRiftServer.GetConnectionServiceByID(id).SendNetworkMessage(data);
+                    Interface.Log("Sending Msg");
+                }
+            } else if (data.distributionType.Equals(7)) {
+                // To avoid duplicates use type 7 as others
+                foreach (ushort id in roomToMessage.Players) {
+                    if (id == senderId) {
+                        continue;
                     }
+                    DarkRiftServer.GetConnectionServiceByID(id).SendNetworkMessage(data);
+                    Interface.Log("Sending Msg others");
+                }
+            } else {
+                foreach (ushort id in roomToMessage.Players) {
+                    if (id == senderId) {
+                        continue;
+                    }
+                    DarkRiftServer.GetConnectionServiceByID(id).SendNetworkMessage(data);
                 }
             }
         }
@@ -199,29 +249,25 @@ namespace Room_Plugin
         /// <param name="con">The connection to the player.</param>
         void OnData(ConnectionService con, ref NetworkMessage data) {
 
-            int subject = data.subject;
-
             // We only care about our "Room" tag
-            if (data.tag != RoomTag)
-            {
+            if (data.tag != RoomTag) {
                 return;
             }
 
             // Keep the original encoded data stored to pass on later
             object originalData = data.data;
 
-            switch (data.subject)
-            {
+            switch (data.subject) {
                 case ROOM_CREATE:
-                    CreateRoomHandler(ref data);
+                    CreateRoomHandler(con, ref data);
                     break;
 
                 case ROOM_JOIN:
-                    JoinRoomHandler(ref data);
+                    JoinRoomHandler(con, ref data);
                     break;
 
                 case ROOM_LEAVE:
-                    LeaveRoomHandler(ref data);
+                    LeaveRoomHandler(con, ref data);
                     break;
 
                 case ROOM_LIST:
@@ -240,21 +286,18 @@ namespace Room_Plugin
         /// <summary>
         ///     Returns true if Room name is in use
         /// </summary>
-        /// <param name="name"></param>
+        /// <param name="roomName"></param>
         /// <returns></returns>
-        private bool IsRoomNameInUse (string name) {
+        private bool DoesRoomExist (string roomName) {
 
-            bool nameIsInUse = false;
-
-            foreach (Room room in RoomList) {
-                if (room.GetName() == name) {
-                    nameIsInUse = true;
-                    break;
-                }
-            }
-
-            return nameIsInUse;
+            return roomsByName.ContainsKey(roomName);
         }
+
+        private bool IsPlayerInAnyRoom (ushort senderId) {
+
+            return senderIdToRoomName.ContainsKey(senderId);
+        }
+
         /// <summary>
         ///     Searches for the room and returns the index
         /// </summary>
@@ -264,11 +307,11 @@ namespace Room_Plugin
         /// <summary>
         /// Command to List Rooms right now
         /// </summary>
-        public void ListRooms_Command(String[] abc)
-        {
-            foreach(Room room in RoomList)
-            {
-                Interface.Log(room.ToString());
+        public void ListRooms_Command (string[] placeholder) {
+            lock (roomsByName) {
+                foreach (var roomNamePair in roomsByName) {
+                    Interface.Log(roomNamePair.Value.ToString());
+                }
             }
         }
     }
