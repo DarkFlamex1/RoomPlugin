@@ -1,5 +1,5 @@
 # Description
-Room Plugin for DarkRift 1
+Room Plugin for DarkRift 1 - NOT IN DEVELOPMENT ANYMORE
 
 # Planned Features
 * Unity API for create/join/leave rooms(Like PUN)
